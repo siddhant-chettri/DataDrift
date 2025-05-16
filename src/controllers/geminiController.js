@@ -196,9 +196,20 @@ const analyzeRegionalAudios = async (req, res) => {
             // Get Gemini's analysis for regional relevance
             const analysis = await analyzeRegionalRelevance(audios, region);
             
+            // Format the analysis for Slack - keeping it simple to avoid payload issues
+            const analysisText = typeof analysis === 'string' 
+              ? analysis 
+              : "Analysis completed. Check dashboard for full details.";
+            
+            // Create a simplified message with just the essential information
+            // Truncate to ensure we stay within Slack's message size limits
+            const truncatedAnalysis = analysisText.length > 2800 
+              ? analysisText.substring(0, 2800) + "... [truncated, see dashboard for full details]" 
+              : analysisText;
+              
             responseBody = {
               response_type: "in_channel", // Visible to everyone in the channel
-              text: `*Regional Audio Analysis for ${region}*`,
+              text: `*Regional Audio Analysis for ${region}*\n${audios.length} audios analyzed`,
               blocks: [
                 {
                   type: "section",
@@ -211,7 +222,7 @@ const analyzeRegionalAudios = async (req, res) => {
                   type: "section",
                   text: {
                     type: "mrkdwn",
-                    text: typeof analysis === 'string' ? analysis : JSON.stringify(analysis, null, 2)
+                    text: truncatedAnalysis
                   }
                 }
               ]
@@ -219,10 +230,10 @@ const analyzeRegionalAudios = async (req, res) => {
           } catch (aiError) {
             console.error('AI analysis error:', aiError);
             
-            // Fallback: Return raw audios without AI analysis
+            // Fallback: Return a simple error message
             responseBody = {
               response_type: "ephemeral",
-              text: "AI analysis failed, showing raw audio data",
+              text: `AI analysis failed: ${aiError.message}`,
               blocks: [
                 {
                   type: "section",
@@ -245,9 +256,26 @@ const analyzeRegionalAudios = async (req, res) => {
         
         // Send the delayed response via response_url if available
         if (response_url) {
-          // Using axios or fetch to post back to the response_url
-          const axios = require('axios');
-          await axios.post(response_url, responseBody);
+          try {
+            // Using axios or fetch to post back to the response_url
+            const axios = require('axios');
+            await axios.post(response_url, responseBody);
+          } catch (slackError) {
+            console.error('Error sending response to Slack:', slackError);
+            console.error('Response payload:', JSON.stringify(responseBody).substring(0, 200) + '...');
+            
+            // Try with a minimal fallback response if original fails
+            const fallbackResponse = {
+              response_type: "ephemeral",
+              text: "Analysis completed but response too large for Slack. Please check the dashboard."
+            };
+            
+            try {
+              await axios.post(response_url, fallbackResponse);
+            } catch (fallbackError) {
+              console.error('Fallback response also failed:', fallbackError);
+            }
+          }
         }
       } catch (asyncError) {
         console.error('Async processing error:', asyncError);
@@ -255,10 +283,14 @@ const analyzeRegionalAudios = async (req, res) => {
         // If there's a response_url, send error message back to Slack
         if (response_url) {
           const axios = require('axios');
-          await axios.post(response_url, {
-            response_type: "ephemeral",
-            text: `Error analyzing regional audio relevance: ${asyncError.message}`
-          });
+          try {
+            await axios.post(response_url, {
+              response_type: "ephemeral",
+              text: `Error analyzing regional audio relevance: ${asyncError.message}`
+            });
+          } catch (slackError) {
+            console.error('Failed to send error message to Slack:', slackError);
+          }
         }
       }
     })();
