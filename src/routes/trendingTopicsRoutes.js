@@ -194,16 +194,23 @@ router.post('/fetch', fetchTrendingTopicsHandler);
  *           - IN-RJ (Rajasthan, India)
  *           - IN-BR (Bihar, India)
  *       - in: query
- *         name: response_url
- *         schema:
- *           type: string
- *         description: Slack response URL for asynchronous responses
- *       - in: query
  *         name: tone
  *         schema:
  *           type: string
  *           default: "engaging"
  *         description: Desired tone for the hashtags (e.g., engaging, professional, casual)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               response_url:
+ *                 type: string
+ *                 description: Slack response URL for asynchronous responses
+ *             required:
+ *               - response_url
  *     responses:
  *       200:
  *         description: Immediate acknowledgment with asynchronous processing

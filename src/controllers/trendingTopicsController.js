@@ -147,13 +147,15 @@ const getTrendingTopicsHandler = async (req, res) => {
  */
 const convertTrendingTopicsToHashtags = async (req, res) => {
   try {
-    // Get optional parameters from query params instead of body
+    // Get parameters from query params
     const { 
       limit = 10,
       region,
-      response_url, // Slack response_url for async replies
       tone = "engaging" // Default tone for hashtags
     } = req.query;
+    
+    // Get response_url from body
+    const { response_url } = req.body;
     
     // Send immediate acknowledgment response to avoid timeout
     res.status(200).json({
