@@ -214,7 +214,7 @@ router.get('/analyze', geminiController.analyzeAllAudio);
  *       500:
  *         description: Server error
  */
-router.get('/analyze-regional', geminiController.analyzeRegionalAudios);
+router.post('/analyze-regional', geminiController.analyzeRegionalAudios);
 
 /**
  * @swagger
