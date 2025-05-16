@@ -1,7 +1,8 @@
 const express = require('express');
 const { 
   fetchTrendingTopicsHandler, 
-  getTrendingTopicsHandler 
+  getTrendingTopicsHandler,
+  convertTrendingTopicsToHashtags
 } = require('../controllers/trendingTopicsController');
 
 const router = express.Router();
@@ -164,5 +165,60 @@ router.post('/', getTrendingTopicsHandler);
  *         description: Server error
  */
 router.post('/fetch', fetchTrendingTopicsHandler);
+
+/**
+ * @swagger
+ * /api/trending-topics/hashtags:
+ *   post:
+ *     summary: Convert trending topics to hashtags
+ *     description: Processes trending topics and converts them to optimized hashtags using AI
+ *     tags: [Trending Topics]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Maximum number of topics to convert
+ *       - in: query
+ *         name: region
+ *         schema:
+ *           type: string
+ *         description: >
+ *           Region geo code for filtering topics. Use ISO country codes or regional codes.
+ *           Examples:
+ *           - IN (India)
+ *           - US (United States)
+ *           - IN-HR (Haryana, India)
+ *           - IN-UP (Uttar Pradesh, India)
+ *           - IN-RJ (Rajasthan, India)
+ *           - IN-BR (Bihar, India)
+ *       - in: query
+ *         name: response_url
+ *         schema:
+ *           type: string
+ *         description: Slack response URL for asynchronous responses
+ *       - in: query
+ *         name: tone
+ *         schema:
+ *           type: string
+ *           default: "engaging"
+ *         description: Desired tone for the hashtags (e.g., engaging, professional, casual)
+ *     responses:
+ *       200:
+ *         description: Immediate acknowledgment with asynchronous processing
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 response_type:
+ *                   type: string
+ *                 text:
+ *                   type: string
+ *       500:
+ *         description: Server error
+ */
+router.post('/hashtags', convertTrendingTopicsToHashtags);
 
 module.exports = router; 
