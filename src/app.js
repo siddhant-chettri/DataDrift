@@ -6,6 +6,7 @@ const socketIo = require('socket.io');
 const { connectDB } = require('./config/database');
 const browserRoutes = require('./routes/browserRoutes');
 const trendingAudioRoutes = require('./routes/trendingAudioRoutes');
+const trendingTopicsRoutes = require('./routes/trendingTopicsRoutes');
 const geminiRoutes = require('./routes/geminiRoutes');
 const { initRoutes: initScrapeRoutes } = require('./routes/scrapeRoutes');
 const swaggerConfig = require('./config/swagger');
@@ -35,6 +36,7 @@ io.on('connection', (socket) => {
 // API Routes
 app.use('/api/browser', browserRoutes);
 app.use('/api/trending-audios', trendingAudioRoutes);
+app.use('/api/trending-topics', trendingTopicsRoutes);
 app.use('/api/gemini', geminiRoutes);
 app.use('/api/scrape', initScrapeRoutes(io));
 
