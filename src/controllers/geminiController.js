@@ -165,7 +165,7 @@ const analyzeRegionalAudios = async (req, res) => {
       limit = 10, // Reduced default limit to avoid quota issues
       region = "Rajasthani, Haryanvi, Bhojpuri",
       minFrequency = 1
-    } = req.query;
+    } = req.body;
     
     // Find trending audios from database
     const audios = await TrendingAudio.find({ 

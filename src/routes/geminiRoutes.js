@@ -179,29 +179,29 @@ router.get('/analyze', geminiController.analyzeAllAudio);
 /**
  * @swagger
  * /api/gemini/analyze-regional:
- *   get:
+ *   post:
  *     summary: Analyze trending audios for regional relevance
  *     description: Get AI analysis of which trending audios are most relevant for specific regional audiences. Uses rate-limited API with fallbacks.
  *     tags: [AI Analysis]
- *     parameters:
- *       - in: query
- *         name: region
- *         schema:
- *           type: string
- *           default: "Rajasthani, Haryanvi, Bhojpuri"
- *         description: Regional audience to analyze relevance for
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Maximum number of audios to analyze (keep low to avoid rate limits)
- *       - in: query
- *         name: minFrequency
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Minimum frequency (number of uses) to include in analysis
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               region:
+ *                 type: string
+ *                 default: "Rajasthani, Haryanvi, Bhojpuri"
+ *                 description: Regional audience to analyze relevance for
+ *               limit:
+ *                 type: integer
+ *                 default: 10
+ *                 description: Maximum number of audios to analyze (keep low to avoid rate limits)
+ *               minFrequency:
+ *                 type: integer
+ *                 default: 1
+ *                 description: Minimum frequency (number of uses) to include in analysis
  *     responses:
  *       200:
  *         description: Successful regional analysis (may use fallback if AI rate-limited)

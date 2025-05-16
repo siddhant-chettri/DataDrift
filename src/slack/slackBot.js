@@ -174,7 +174,7 @@ const initSlackBot = () => {
 
       // Command: Regional analysis
       if (text.startsWith('regional ')) {
-        const region = text.substring('regional '.length).trim();
+        const region = text.substring('regional '.length).trim() || 'Rajasthani, Haryanvi, Bhojpuri';
         
         if (!region) {
           await say('Please specify a region. Example: `regional Rajasthani`');
@@ -184,7 +184,11 @@ const initSlackBot = () => {
         await say(`Analyzing trending audios for ${region} audience... This may take a moment.`);
         
         try {
-          const response = await apiCall(`/api/gemini/analyze-regional?region=${encodeURIComponent(region)}`);
+          const response = await apiCall('/api/gemini/analyze-regional', 'POST', {
+            region: region,
+            limit: 10,
+            minFrequency: 1
+          });
           
           if (!response.success) {
             await say(`Failed to analyze for ${region} audience.`);
