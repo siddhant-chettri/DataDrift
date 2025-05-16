@@ -154,7 +154,7 @@ const customPromptAnalysis = async (req, res) => {
 };
 
 /**
- * Analyze trending audios for regional relevance
+ * Analyze trending audios for regional relevance - optimized for Slack commands
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object 
  */
@@ -164,54 +164,110 @@ const analyzeRegionalAudios = async (req, res) => {
     const { 
       limit = 10, // Reduced default limit to avoid quota issues
       region = "Rajasthani, Haryanvi, Bhojpuri",
-      minFrequency = 1
+      minFrequency = 1,
+      response_url // Slack response_url for async replies
     } = req.body;
     
-    // Find trending audios from database
-    const audios = await TrendingAudio.find({ 
-      frequency: { $gte: parseInt(minFrequency) } 
-    })
-      .sort({ frequency: -1 })
-      .limit(parseInt(limit));
+    // Send immediate acknowledgment response to avoid timeout
+    res.status(200).json({
+      response_type: "ephemeral", // Only visible to the user who triggered the command
+      text: "Analyzing trending audios for regional relevance. Results will be posted shortly..."
+    });
     
-    if (!audios.length) {
-      return res.status(404).json({
-        success: false,
-        message: 'No trending audios found'
-      });
-    }
+    // Process the request asynchronously
+    (async () => {
+      try {
+        // Find trending audios from database
+        const audios = await TrendingAudio.find({ 
+          frequency: { $gte: parseInt(minFrequency) } 
+        })
+          .sort({ frequency: -1 })
+          .limit(parseInt(limit));
+        
+        let responseBody;
+        
+        if (!audios.length) {
+          responseBody = {
+            response_type: "ephemeral",
+            text: "No trending audios found matching your criteria."
+          };
+        } else {
+          try {
+            // Get Gemini's analysis for regional relevance
+            const analysis = await analyzeRegionalRelevance(audios, region);
+            
+            responseBody = {
+              response_type: "in_channel", // Visible to everyone in the channel
+              text: `*Regional Audio Analysis for ${region}*`,
+              blocks: [
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: `*Regional Audio Analysis for ${region}*\n${audios.length} audios analyzed`
+                  }
+                },
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: typeof analysis === 'string' ? analysis : JSON.stringify(analysis, null, 2)
+                  }
+                }
+              ]
+            };
+          } catch (aiError) {
+            console.error('AI analysis error:', aiError);
+            
+            // Fallback: Return raw audios without AI analysis
+            responseBody = {
+              response_type: "ephemeral",
+              text: "AI analysis failed, showing raw audio data",
+              blocks: [
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: `*Regional Audio Analysis Failed*\nError: ${aiError.message}`
+                  }
+                },
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: `Found ${audios.length} trending audios for region: ${region}`
+                  }
+                }
+              ]
+            };
+          }
+        }
+        
+        // Send the delayed response via response_url if available
+        if (response_url) {
+          // Using axios or fetch to post back to the response_url
+          const axios = require('axios');
+          await axios.post(response_url, responseBody);
+        }
+      } catch (asyncError) {
+        console.error('Async processing error:', asyncError);
+        
+        // If there's a response_url, send error message back to Slack
+        if (response_url) {
+          const axios = require('axios');
+          await axios.post(response_url, {
+            response_type: "ephemeral",
+            text: `Error analyzing regional audio relevance: ${asyncError.message}`
+          });
+        }
+      }
+    })();
     
-    try {
-      // Get Gemini's analysis for regional relevance
-      const analysis = await analyzeRegionalRelevance(audios, region);
-      
-      return res.status(200).json({
-        success: true,
-        data: analysis,
-        totalAudiosAnalyzed: audios.length
-      });
-    } catch (aiError) {
-      console.error('AI analysis error:', aiError);
-      
-      // Fallback: Return raw audios without AI analysis
-      return res.status(200).json({
-        success: true,
-        message: 'AI analysis failed, returning raw audios',
-        error: aiError.message,
-        data: {
-          audios: audios.map(audio => audio.toObject()),
-          region,
-          fallbackUsed: true
-        },
-        totalAudiosAnalyzed: audios.length
-      });
-    }
   } catch (error) {
     console.error('Error in analyzeRegionalAudios:', error);
     return res.status(500).json({
-      success: false,
-      message: 'Error analyzing regional audio relevance',
-      error: error.message
+      text: "Error processing your request",
+      response_type: "ephemeral"
     });
   }
 };
