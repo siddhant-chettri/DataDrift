@@ -201,11 +201,16 @@ const analyzeRegionalAudios = async (req, res) => {
               ? analysis 
               : "Analysis completed. Check dashboard for full details.";
             
-            // Create a simplified message with just the essential information
+            // Create a list of audio names/titles
+            const audioTitles = audios.map(audio => audio.name).join(', ');
+            
+            // Combine audio titles with analysis text
+            const combinedAnalysis = `These are the trending audios that you can use: ${audioTitles}\n\n${analysisText}`;
+              
             // Truncate to ensure we stay within Slack's message size limits
-            const truncatedAnalysis = analysisText.length > 2800 
-              ? analysisText.substring(0, 2800) + "... [truncated, see dashboard for full details]" 
-              : analysisText;
+            const truncatedAnalysis = combinedAnalysis.length > 2800 
+              ? combinedAnalysis.substring(0, 2800) + "... [truncated, see dashboard for full details]" 
+              : combinedAnalysis;
               
             responseBody = {
               response_type: "in_channel", // Visible to everyone in the channel
