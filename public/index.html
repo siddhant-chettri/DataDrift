@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instagram Scraper</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .scrape-status {
+      margin: 20px 0;
+      padding: 15px;
+      border-radius: 5px;
+      background-color: #f8f9fa;
+    }
+    .status-indicator {
+      font-weight: bold;
+    }
+    .status-started { color: #007bff; }
+    .status-navigating { color: #6610f2; }
+    .status-processing { color: #fd7e14; }
+    .status-scrolling { color: #6f42c1; }
+    .status-completed { color: #28a745; }
+    .status-error { color: #dc3545; }
+    .reel-item {
+      border: 1px solid #dee2e6;
+      border-radius: 5px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    #status-container {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1>Instagram Reels Scraper</h1>
+      <div>
+        <a href="/api" class="btn btn-secondary">API Docs</a>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5>Server Status</h5>
+      </div>
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-3">
+          <span class="me-2">Connection:</span>
+          <span id="connection-status" class="badge bg-secondary">Checking...</span>
+        </div>
+        <div class="d-flex align-items-center mb-3">
+          <span class="me-2">Login Status:</span>
+          <span id="login-status" class="badge bg-secondary">Checking...</span>
+        </div>
+        <div class="mb-3">
+          <label for="instagram-username" class="form-label">Instagram Username:</label>
+          <input type="text" id="instagram-username" class="form-control" placeholder="Enter your Instagram username">
+        </div>
+        <div class="mb-3">
+          <label for="instagram-password" class="form-label">Instagram Password:</label>
+          <input type="password" id="instagram-password" class="form-control" placeholder="Enter your Instagram password">
+        </div>
+        <div class="d-flex">
+          <button id="login-btn" class="btn btn-primary me-2">Login to Instagram</button>
+          <button id="close-btn" class="btn btn-danger me-2">Close Browser</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5>Scrape Reels</h5>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label for="scroll-count" class="form-label">Number of scrolls:</label>
+          <input type="number" id="scroll-count" class="form-control" value="3" min="1" max="20">
+          <div class="form-text">More scrolls = more reels (but takes longer)</div>
+        </div>
+        <button id="scrape-btn" class="btn btn-success">Start Scraping Reels</button>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5>Scraping Status</h5>
+      </div>
+      <div class="card-body">
+        <div id="status-container" class="mb-3"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h5>Results</h5>
+      </div>
+      <div class="card-body">
+        <div id="results-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // DOM elements
+      const connectionStatus = document.getElementById('connection-status');
+      const loginStatus = document.getElementById('login-status');
+      const loginBtn = document.getElementById('login-btn');
+      const closeBtn = document.getElementById('close-btn');
+      const scrapeBtn = document.getElementById('scrape-btn');
+      const scrollCountInput = document.getElementById('scroll-count');
+      const statusContainer = document.getElementById('status-container');
+      const resultsContainer = document.getElementById('results-container');
+
+      // Connect to socket.io
+      const socket = io();
+      
+      // Event listeners
+      socket.on('connect', () => {
+        connectionStatus.textContent = 'Connected';
+        connectionStatus.className = 'badge bg-success';
+        checkStatus();
+      });
+      
+      socket.on('disconnect', () => {
+        connectionStatus.textContent = 'Disconnected';
+        connectionStatus.className = 'badge bg-danger';
+        loginStatus.textContent = 'Unknown';
+        loginStatus.className = 'badge bg-secondary';
+      });
+      
+      socket.on('scrapeStatus', (data) => {
+        addStatusMessage(data);
+        
+        if (data.status === 'completed' && data.data) {
+          displayResults(data.data);
+        }
+      });
+      
+      loginBtn.addEventListener('click', async () => {
+        loginBtn.textContent = 'Logging in...';
+        
+        const username = document.getElementById('instagram-username').value;
+        const password = document.getElementById('instagram-password').value;
+        
+        if (!username || !password) {
+          addStatusMessage({ 
+            status: 'error', 
+            message: 'Username and password are required' 
+          });
+          loginBtn.textContent = 'Login to Instagram';
+          return;
+        }
+        
+        try {
+          const response = await fetch('/api/browser/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              username,
+              password
+            })
+          });
+          
+          const result = await response.json();
+          addStatusMessage({ 
+            status: result.success ? 'completed' : 'error', 
+            message: result.message 
+          });
+          
+          checkStatus();
+        } catch (error) {
+          addStatusMessage({ 
+            status: 'error', 
+            message: `Login request failed: ${error.message}` 
+          });
+          loginBtn.textContent = 'Login to Instagram';
+        }
+      });
+      
+      closeBtn.addEventListener('click', async () => {
+        try {
+          const response = await fetch('/api/close', {
+            method: 'POST'
+          });
+          
+          const result = await response.json();
+          addStatusMessage({ 
+            status: result.success ? 'completed' : 'error', 
+            message: result.message 
+          });
+          
+          checkStatus();
+        } catch (error) {
+          addStatusMessage({ 
+            status: 'error', 
+            message: `Close request failed: ${error.message}` 
+          });
+        }
+      });
+      
+      scrapeBtn.addEventListener('click', async () => {
+        scrapeBtn.textContent = 'Scraping...';
+        
+        // Clear previous results
+        resultsContainer.innerHTML = '<div class="alert alert-info">Scraping in progress...</div>';
+        
+        try {
+          const scrollCount = parseInt(scrollCountInput.value) || 3;
+          
+          const response = await fetch('/api/scrape/reels', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ scrollCount })
+          });
+          
+          const result = await response.json();
+          
+          if (!result.success) {
+            addStatusMessage({ 
+              status: 'error', 
+              message: result.message 
+            });
+            resultsContainer.innerHTML = `<div class="alert alert-danger">${result.message}</div>`;
+          }
+        } catch (error) {
+          addStatusMessage({ 
+            status: 'error', 
+            message: `Scrape request failed: ${error.message}` 
+          });
+          resultsContainer.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+        } finally {
+          scrapeBtn.textContent = 'Start Scraping Reels';
+        }
+      });
+      
+      // Functions
+      async function checkStatus() {
+        try {
+          const response = await fetch('/api/status');
+          const status = await response.json();
+          
+          loginStatus.textContent = status.isLoggedIn ? 'Logged In' : 'Not Logged In';
+          loginStatus.className = status.isLoggedIn ? 'badge bg-success' : 'badge bg-warning';
+        } catch (error) {
+          console.error('Failed to check status:', error);
+          loginStatus.textContent = 'Error';
+          loginStatus.className = 'badge bg-danger';
+        }
+      }
+      
+      function updateButtonStates(browserActive, isLoggedIn) {
+        // Function kept for compatibility but not used to disable buttons
+      }
+      
+      function addStatusMessage(data) {
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'scrape-status';
+        
+        const statusIndicator = document.createElement('span');
+        statusIndicator.className = `status-indicator status-${data.status}`;
+        statusIndicator.textContent = data.status.toUpperCase();
+        
+        statusDiv.appendChild(statusIndicator);
+        statusDiv.appendChild(document.createTextNode(`: ${data.message}`));
+        
+        statusContainer.appendChild(statusDiv);
+        statusContainer.scrollTop = statusContainer.scrollHeight;
+      }
+      
+      function displayResults(reels) {
+        if (!reels || reels.length === 0) {
+          resultsContainer.innerHTML = '<div class="alert alert-warning">No reels found</div>';
+          return;
+        }
+        
+        resultsContainer.innerHTML = `<h6>Found ${reels.length} reels:</h6>`;
+        
+        reels.forEach(reel => {
+          const reelDiv = document.createElement('div');
+          reelDiv.className = 'reel-item';
+          
+          reelDiv.innerHTML = `
+            <h5>@${reel.username}</h5>
+            <p><strong>Caption:</strong> ${reel.caption}</p>
+            <p><strong>Likes:</strong> ${reel.likeCount}</p>
+            ${reel.postUrl ? `<p><a href="${reel.postUrl}" target="_blank">View on Instagram</a></p>` : ''}
+          `;
+          
+          resultsContainer.appendChild(reelDiv);
+        });
+      }
+      
+      // Initial status check
+      checkStatus();
+    });
+  </script>
+</body>
+</html> 
