@@ -201,39 +201,82 @@ const analyzeRegionalAudios = async (req, res) => {
               ? analysis 
               : "Analysis completed. Check dashboard for full details.";
             
-            // Create a list of audio names/titles
-            const audioTitles = audios.map(audio => audio.name).join(', ');
+            // Create a stylized list of audio tracks instead of comma-separated values
+            const audioListBlocks = audios.map(audio => {
+              return {
+                type: "section",
+                text: {
+                  type: "mrkdwn",
+                  text: `*${audio.name}*\n${audio.audioAuthor ? `👤 ${audio.audioAuthor}` : "👤 Unknown artist"}\n🔄 Used ${audio.frequency} times`
+                }
+              };
+            });
             
-            // Combine audio titles with analysis text
-            const combinedAnalysis = `These are the trending audios that you can use: ${audioTitles}\n\n${analysisText}`;
-              
-            // Truncate to ensure we stay within Slack's message size limits
-            const truncatedAnalysis = combinedAnalysis.length > 2800 
-              ? combinedAnalysis.substring(0, 2800) + "... [truncated, see dashboard for full details]" 
-              : combinedAnalysis;
+            // Add a divider before the analysis section
+            const dividerBlock = {
+              type: "divider"
+            };
+            
+            // Add a header for the analysis section
+            const analysisHeaderBlock = {
+              type: "header",
+              text: {
+                type: "plain_text",
+                text: "Analysis",
+                emoji: true
+              }
+            };
+            
+            // Format the analysis as its own section
+            const analysisBlock = {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: analysisText.length > 2800 
+                  ? analysisText.substring(0, 2800) + "... [truncated, see dashboard for full details]" 
+                  : analysisText
+              }
+            };
               
             responseBody = {
               response_type: "in_channel", // Visible to everyone in the channel
               text: `*Regional Audio Analysis for ${region}*\n${audios.length} audios analyzed`,
               blocks: [
                 {
-                  type: "section",
+                  type: "header",
                   text: {
-                    type: "mrkdwn",
-                    text: `*Regional Audio Analysis for ${region}*\n${audios.length} audios analyzed`
+                    type: "plain_text",
+                    text: `Regional Audio Analysis for ${region}`,
+                    emoji: true
                   }
                 },
                 {
                   type: "section",
                   text: {
                     type: "mrkdwn",
-                    text: truncatedAnalysis
+                    text: `Found ${audios.length} trending audio tracks for ${region} regions.`
                   }
-                }
+                },
+                dividerBlock,
+                ...audioListBlocks,
+                dividerBlock,
+                analysisHeaderBlock,
+                analysisBlock
               ]
             };
           } catch (aiError) {
             console.error('AI analysis error:', aiError);
+            
+            // Create styled audio blocks for fallback response
+            const audioListBlocks = audios.map(audio => {
+              return {
+                type: "section",
+                text: {
+                  type: "mrkdwn",
+                  text: `*${audio.name}*\n👤 ${audio.audioAuthor || 'Unknown artist'}\n🔄 Used ${audio.frequency} times`
+                }
+              };
+            });
             
             // Fallback: Return a simple error message
             responseBody = {
@@ -241,11 +284,22 @@ const analyzeRegionalAudios = async (req, res) => {
               text: `AI analysis failed: ${aiError.message}`,
               blocks: [
                 {
+                  type: "header",
+                  text: {
+                    type: "plain_text",
+                    text: "Regional Audio Analysis Failed",
+                    emoji: true
+                  }
+                },
+                {
                   type: "section",
                   text: {
                     type: "mrkdwn",
-                    text: `*Regional Audio Analysis Failed*\nError: ${aiError.message}`
+                    text: `Error: ${aiError.message}`
                   }
+                },
+                {
+                  type: "divider"
                 },
                 {
                   type: "section",
@@ -253,7 +307,11 @@ const analyzeRegionalAudios = async (req, res) => {
                     type: "mrkdwn",
                     text: `Found ${audios.length} trending audios for region: ${region}`
                   }
-                }
+                },
+                {
+                  type: "divider"
+                },
+                ...audioListBlocks
               ]
             };
           }
