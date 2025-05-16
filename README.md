@@ -137,6 +137,28 @@ npm run legacy
 5. Store trending audio and reel data in MongoDB
 6. Access trending audio data through API endpoints
 
+## Instagram Access Token
+
+### Refreshing Your Access Token
+
+Facebook/Instagram access tokens expire periodically. If you encounter errors related to an invalid or expired token, follow these steps to refresh it:
+
+1. Visit the [Facebook Developer Portal](https://developers.facebook.com/)
+2. Navigate to your App
+3. Go to Tools > Graph API Explorer
+4. Select your app from the dropdown
+5. Click "Generate Access Token"
+6. Select the necessary permissions (at minimum: `instagram_basic`, `instagram_content_publish`, `pages_read_engagement`)
+7. Click "Generate Token"
+8. Copy the new access token
+9. Update your `.env` file:
+   ```
+   INSTA_ACCESS_TOKEN=your_new_token_here
+   ```
+10. Restart your application
+
+You can verify token validity by calling the `/api/instagram/token-status` endpoint.
+
 ## License
 
 MIT

@@ -8,6 +8,7 @@ const browserRoutes = require('./routes/browserRoutes');
 const trendingAudioRoutes = require('./routes/trendingAudioRoutes');
 const trendingTopicsRoutes = require('./routes/trendingTopicsRoutes');
 const geminiRoutes = require('./routes/geminiRoutes');
+const instagramRoutes = require('./routes/instagramRoutes');
 const { initRoutes: initScrapeRoutes } = require('./routes/scrapeRoutes');
 const swaggerConfig = require('./config/swagger');
 const { startSlackBot, stopSlackBot } = require('./slack');
@@ -38,6 +39,7 @@ app.use('/api/browser', browserRoutes);
 app.use('/api/trending-audios', trendingAudioRoutes);
 app.use('/api/trending-topics', trendingTopicsRoutes);
 app.use('/api/gemini', geminiRoutes);
+app.use('/api/instagram', instagramRoutes);
 app.use('/api/scrape', initScrapeRoutes(io));
 
 // Swagger documentation

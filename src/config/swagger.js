@@ -18,6 +18,8 @@ This API allows you to scrape Instagram reels, extract trending audio informatio
 - Instagram reels scraping
 - Trending audio tracking and analysis
 - AI-powered audio trend analysis with Google Gemini
+- Instagram post metrics and Reels performance analysis
+- Slack integration for data insights
 
 ## Authentication
 
@@ -31,8 +33,8 @@ Connect to the WebSocket server to receive progress updates.
 
 ## Gemini AI Integration
 
-The API includes integration with Google's Gemini AI for analyzing trending audio data.
-Use the /api/gemini endpoints to access AI-generated insights about audio trends.
+The API includes integration with Google's Gemini AI for analyzing trending audio data and Instagram Reels performance.
+Use the /api/gemini and /api/instagram endpoints to access AI-generated insights.
       `,
       contact: {
         name: 'API Support',
@@ -59,12 +61,20 @@ Use the /api/gemini endpoints to access AI-generated insights about audio trends
         description: 'Endpoints for retrieving trending audio data'
       },
       {
+        name: 'Instagram',
+        description: 'Endpoints for Instagram Graph API integration and Reels performance analysis'
+      },
+      {
         name: 'AI Analysis',
         description: 'Endpoints for AI-powered analysis of trending audio using Google Gemini'
       },
       {
         name: 'System',
         description: 'System status and information'
+      },
+      {
+        name: 'Slack',
+        description: 'Slack integration endpoints'
       }
     ]
   },

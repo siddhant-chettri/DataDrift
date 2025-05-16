@@ -57,7 +57,7 @@ const initSlackBot = () => {
               type: 'section',
               text: {
                 type: 'mrkdwn',
-                text: '• `status` - Check if server is running\n• `trending` - Get trending audios\n• `analyze` - Analyze top trending audio\n• `regional [region]` - Analyze trending audios for a specific region\n• `scrape [login]` - Start a scraping job (with optional login)\n• `help` - Show this help message'
+                text: '• `status` - Check if server is running\n• `trending` - Get trending audios\n• `analyze` - Analyze top trending audio\n• `regional [region]` - Analyze trending audios for a specific region\n• `scrape [login]` - Start a scraping job (with optional login)\n• `reels [timeRange]` - Analyze Instagram Reels performance\n• `help` - Show this help message'
               }
             }
           ]
@@ -195,6 +195,31 @@ const initSlackBot = () => {
             return;
           }
 
+          // Command: Analyze Instagram Reels performance
+          if (text.startsWith('reels')) {
+            // Parse time range if provided
+            const parts = text.split(' ');
+            const timeRange = parts.length > 1 ? parts[1] : '30d'; // Default to 30 days
+            
+            await say(`Analyzing Instagram Reels performance for the last ${timeRange}... This may take a moment.`);
+            
+            try {
+              // Use the Slack response URL mechanism to handle long-running requests
+              const response_url = message.response_url;
+              
+              await apiCall('/api/instagram/slack/reels-performance', 'POST', {
+                response_url,
+                text: timeRange
+              });
+              
+              // Note: The actual response will be sent via the response_url by the controller
+              // So we don't need to send anything else here
+            } catch (error) {
+              await say(`Failed to analyze Instagram Reels: ${error.message}`);
+            }
+            return;
+          }
+
           // Format results for Slack
           const topAudios = response.data.sortedAudios.slice(0, 5).map((audio, index) => 
             `*${index + 1}. ${audio.name || 'Unnamed'}*\nRelevance: ${audio.relevanceScore}/10`
@@ -206,21 +231,21 @@ const initSlackBot = () => {
                 type: 'section',
                 text: {
                   type: 'mrkdwn',
-                  text: `*AI Analysis for ${region} Audience*`
+                  text: `*Top Audios for ${region} Audience*`
                 }
               },
               {
                 type: 'section',
                 text: {
                   type: 'mrkdwn',
-                  text: response.data.analysis
+                  text: topAudios
                 }
               },
               {
                 type: 'section',
                 text: {
                   type: 'mrkdwn',
-                  text: '*Top Recommended Tracks:*\n\n' + topAudios
+                  text: '*Analysis*\n' + response.data.analysis
                 }
               }
             ]
@@ -230,84 +255,71 @@ const initSlackBot = () => {
         }
         return;
       }
-
-      // Command: Start a scraping job
-      if (text === 'scrape' || text === 'scrape login') {
-        const shouldLogin = text === 'scrape login';
+      
+      // Command: Analyze Instagram Reels performance
+      if (text.startsWith('reels')) {
+        // Parse time range if provided
+        const parts = text.split(' ');
+        const timeRange = parts.length > 1 ? parts[1] : '30d'; // Default to 30 days
         
-        await say(`Starting Instagram scraping job${shouldLogin ? ' with login' : ''}... This may take a few minutes.`);
+        await say(`Analyzing Instagram Reels performance for the last ${timeRange}... This may take a moment.`);
         
         try {
-          // First, initialize the browser
-          await apiCall('/api/browser/init', 'POST');
-          
-          // If login requested, perform login
-          if (shouldLogin) {
-            await apiCall('/api/browser/login', 'POST', {
-              username: process.env.INSTAGRAM_USERNAME,
-              password: process.env.INSTAGRAM_PASSWORD
-            });
-          }
-          
-          // Start the scraping job
-          const response = await apiCall('/api/scrape/reels', 'POST', {
-            scrollCount: 5
+          // We'll use a direct API call with response_url to handle the asynchronous response
+          await apiCall('/api/instagram/slack/reels-performance', 'POST', {
+            response_url: message.response_url,
+            text: timeRange
           });
           
-          if (response.success) {
-            await say({
-              blocks: [
-                {
-                  type: 'section',
-                  text: {
-                    type: 'mrkdwn',
-                    text: '*Scraping Completed*'
-                  }
-                },
-                {
-                  type: 'section',
-                  fields: [
-                    {
-                      type: 'mrkdwn',
-                      text: `*Reels found:* ${response.data.length}`
-                    },
-                    {
-                      type: 'mrkdwn',
-                      text: `*Trending audios:* ${response.trendingAudios.length}`
-                    }
-                  ]
-                }
-              ]
-            });
-          } else {
-            await say(`Scraping failed: ${response.message}`);
-          }
+          // Note: The actual response will be sent via the response_url by the controller
         } catch (error) {
-          await say(`Scraping failed: ${error.message}`);
+          await say(`Failed to analyze Instagram Reels: ${error.message}`);
         }
         return;
       }
 
-      // Default response for unrecognized commands
-      await say({
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: "I didn't understand that command. Try `help` to see available commands."
-            }
-          }
-        ]
-      });
-
+      // Default response for unknown commands
+      await say('I didn\'t understand that command. Type `help` to see available commands.');
+      
     } catch (error) {
       console.error('Error handling message:', error);
-      await say(`Sorry, an error occurred: ${error.message}`);
+      await say(`Error: ${error.message}`);
+    }
+  });
+
+  // Register a slash command for Instagram Reels analysis
+  app.command('/reels-analysis', async ({ command, ack, respond }) => {
+    // Acknowledge command request
+    await ack();
+
+    try {
+      // The text parameter contains any text after the command
+      const timeRange = command.text.trim() || '30d'; // Default to 30 days if not specified
+      
+      // Send initial response
+      await respond({
+        response_type: 'ephemeral',
+        text: `Analyzing Instagram Reels performance for the last ${timeRange}. Results will be posted shortly...`
+      });
+      
+      // Call the API endpoint that will process the request and respond via response_url
+      await apiCall('/api/instagram/slack/reels-performance', 'POST', {
+        response_url: command.response_url,
+        text: timeRange
+      });
+      
+      // The actual response will be sent asynchronously via the response_url
+    } catch (error) {
+      await respond({
+        response_type: 'ephemeral',
+        text: `Error analyzing Instagram Reels: ${error.message}`
+      });
     }
   });
 
   return app;
 };
 
-module.exports = { initSlackBot }; 
+module.exports = {
+  initSlackBot
+}; 
