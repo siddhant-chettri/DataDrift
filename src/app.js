@@ -163,6 +163,21 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Function to prevent server from spinning down on Render
+const keepAlive = () => {
+  const interval = 14 * 60 * 1000; // 14 minutes (Render spins down after 15 minutes of inactivity)
+  setInterval(async () => {
+    try {
+      const url = process.env.APP_URL || `http://localhost:${PORT}`;
+      console.log(`Pinging server at ${url}/api/status to keep alive`);
+      const response = await axios.get(`${url}/api/status`);
+      console.log(`Ping successful: ${response.status}`);
+    } catch (error) {
+      console.error('Keep-alive ping failed:', error.message);
+    }
+  }, interval);
+};
+
 // Start server
 const PORT = process.env.PORT || 3000;
 const startServer = async () => {
@@ -174,6 +189,12 @@ const startServer = async () => {
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`API Documentation available at http://localhost:${PORT}`);
+      
+      // Start keep-alive mechanism for Render
+      if (process.env.NODE_ENV === 'production') {
+        keepAlive();
+        console.log('Keep-alive mechanism started for Render deployment');
+      }
       
       // Auto-start Slack bot if environment variables are set
       if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_SIGNING_SECRET) {
